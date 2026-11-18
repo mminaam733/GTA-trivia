@@ -25,6 +25,8 @@ Run the server on a computer connected to the same Wi-Fi as participants. Find t
 
 The project includes `render.yaml` for Render. To publish it, push this folder to a GitHub repository, then create a new Blueprint in Render and select that repository. Enter a private value for `ADMIN_PASSCODE` when prompted. Render builds the Node service and gives it a public `onrender.com` URL; open that URL plus `/proctor` to create a room. Share the generated participant link or QR code. The app listens on Render's assigned port and uses the forwarded HTTPS protocol when generating links.
 
+For a temporary public link without setting up Render, start the app with `npm.cmd start`, open a second PowerShell window, and run `npx.cmd --yes localtunnel --port 3000`. Use the printed HTTPS URL plus `/proctor` to create a room, then share the generated participant link. Keep both terminals open and the computer awake; the tunnel address changes when restarted.
+
 Render's free web services can spin down after 15 minutes without requests, so the first visit after a quiet period may take longer. For temporary demos without a deployment, expose a running local server with ngrok; your computer must stay on and connected while people use the link.
 
 Railway can also deploy the repository as a Node web service: use `npm install` as the build command, `npm start` as the start command, and set `ADMIN_PASSCODE` in the service variables. Both platforms provide the port through `PORT`.
