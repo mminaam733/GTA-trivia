@@ -2,6 +2,8 @@
 
 A server-graded, proctored trivia experience with participant sessions, organizer-created rooms, shareable links, QR codes, and a live session monitor.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mminaam733/GTA-trivia)
+
 ## Run locally
 
 Requires Node.js 18 or newer.

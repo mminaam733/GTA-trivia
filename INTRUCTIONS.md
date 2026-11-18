@@ -49,19 +49,19 @@ This works only while your computer is on and the server is running.
 
 The project has a `render.yaml` deployment configuration. Render hosts the app and provides a public URL, so your computer does not need to stay on.
 
+**Direct deploy link:** <https://render.com/deploy?repo=https://github.com/mminaam733/GTA-trivia>
+
 ### A. Put the project on GitHub
 
-1. Sign in to GitHub and create a new repository. A private repository is fine if you connect that GitHub account to Render.
-2. In PowerShell, from the project folder, run these commands. Replace `YOUR-GITHUB-USERNAME` and `YOUR-REPOSITORY` with your values:
+The project is already in [your GitHub repository](https://github.com/mminaam733/GTA-trivia), so you can skip the Git commands below unless you are setting it up again.
+
+If you need to push it again, from PowerShell in the project folder run:
 
    ```powershell
    cd "C:\Users\mmina\OneDrive\Desktop\gta"
-   git init
    git add .
-   git commit -m "Add Vice City trivia app"
-   git branch -M main
-   git remote add origin https://github.com/YOUR-GITHUB-USERNAME/YOUR-REPOSITORY.git
-   git push -u origin main
+   git commit -m "Update Vice City trivia app"
+   git push
    ```
 
    If Git asks you to sign in, complete its browser sign-in flow. If `git` is not recognized, install Git for Windows, open a new PowerShell window, and retry.
