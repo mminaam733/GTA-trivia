@@ -45,6 +45,8 @@ This works only while your computer is on and the server is running.
 
 5. Send that link to people connected to the same Wi-Fi. If their devices cannot connect, allow Node.js or TCP port 3000 through your computer's firewall.
 
+Each nickname can have one session per room. A participant who reloads in the same browser can resume and restore saved answers; separate participants should use different nicknames.
+
 ## 3. Deploy it for people on other networks
 
 The project has a `render.yaml` deployment configuration. Render hosts the app and provides a public URL, so your computer does not need to stay on.
@@ -122,7 +124,7 @@ In Render, open the service's **Environment** settings, change `ADMIN_PASSCODE`,
 ter 1:
 
 cd "C:\Users\mmina\OneDrive\Desktop\gta"
-$env:ADMIN_PASSCODE = "choose-your-own-passcode"
+$env:ADMIN_PASSCODE = "password"
 npm.cmd start
 
 ter2:

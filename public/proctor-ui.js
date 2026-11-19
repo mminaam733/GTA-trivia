@@ -15,6 +15,20 @@
     return `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
   };
   const statusClass=status=>status==='SUBMITTED'?'submitted':status==='DISQUALIFIED'?'disqualified':status==='TIME EXPIRED'?'disqualified':'';
+  function collapseParticipants(sessions){
+    const groups=new Map();
+    sessions.forEach(session=>{
+      const key=`${session.roomCode}::${String(session.playerName||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ')}`;
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(session);
+    });
+    return [...groups.values()].map(items=>{
+      const best=items.slice().sort((a,b)=>(b.score||0)-(a.score||0)||(b.answeredCount||0)-(a.answeredCount||0)||a.startTime-b.startTime)[0];
+      const primary=items.find(s=>s.status==='IN PROGRESS')||best;
+      const logs=items.flatMap(s=>(s.violationLog||[]).map(entry=>({...entry,sessionId:s.sessionId}))).sort((a,b)=>a.timestamp-b.timestamp);
+      return {...primary,duplicateSessions:items.length,allSessionIds:items.map(s=>s.sessionId),activeSessionIds:items.filter(s=>s.status==='IN PROGRESS').map(s=>s.sessionId),score:best.score||0,answeredCount:best.answeredCount||0,violations:items.reduce((sum,s)=>sum+(s.violations||0),0),maxFlags:items.reduce((sum,s)=>sum+(s.maxFlags||0),0),violationLog:logs};
+    });
+  }
 
   function showDashboard(){
     $('login').classList.add('hidden');
@@ -39,7 +53,8 @@
       const rankClass=lastRank===1?' first':'';
       const scoreClass=lastRank===1?' score-top':'';
       const state=`<span class="status-pill ${statusClass(s.status)}">${escapeHtml(s.status)}</span>`;
-      return `<tr><td><span class="rank${rankClass}">#${lastRank}</span></td><td>${escapeHtml(s.playerName)}<span class="room-tag">${escapeHtml(s.roomName)} · ${escapeHtml(s.roomCode)}</span></td><td><span class="score-value${scoreClass}">${score} / ${total}</span></td><td>${answered} / ${total}<div class="progress-track"><i style="width:${Math.round(answered/total*100)}%"></i></div></td><td><span class="flag-count ${s.violations?'danger':''}">${s.violations} / ${s.maxFlags}</span></td><td>${state}</td></tr>`;
+      const repeat=s.duplicateSessions>1?`<span class="room-tag">${s.duplicateSessions} sessions grouped</span>`:'';
+      return `<tr><td><span class="rank${rankClass}">#${lastRank}</span></td><td>${escapeHtml(s.playerName)}<span class="room-tag">${escapeHtml(s.roomName)} · ${escapeHtml(s.roomCode)}</span>${repeat}</td><td><span class="score-value${scoreClass}">${score} / ${total}</span></td><td>${answered} / ${total}<div class="progress-track"><i style="width:${Math.round(answered/total*100)}%"></i></div></td><td><span class="flag-count ${s.violations?'danger':''}">${s.violations} / ${s.maxFlags}</span></td><td>${state}</td></tr>`;
     }).join('');
   }
   function renderFlagHistory(session){
@@ -54,21 +69,25 @@
     return sessions.slice().sort((a,b)=>b.startTime-a.startTime).map(s=>{
       const remain=Math.max(0,s.startTime+s.durationMs-now);
       const time=s.status==='IN PROGRESS'?formatTime(remain):'—';
-      const action=s.status==='IN PROGRESS'?`<button class="kick" type="button" data-lock="${escapeHtml(s.sessionId)}">FORCE LOCK</button>`:'—';
+      const activeIds=s.activeSessionIds||[];
+      const action=activeIds.length?`<button class="kick" type="button" data-lock="${escapeHtml(activeIds.join(','))}">FORCE LOCK</button>`:'—';
       const ip=s.ip?`<small>${escapeHtml(s.ip)}</small>`:'';
-      return `<tr><td>${escapeHtml(s.playerName)}${ip}<small>${escapeHtml(s.sessionId.slice(0,8))}</small></td><td>${time}</td><td>${renderFlagHistory(s)}</td><td><span class="status-pill ${statusClass(s.status)}">${escapeHtml(s.status)}</span></td><td>${action}</td></tr>`;
+      const duplicate=s.duplicateSessions>1?`<small>${s.duplicateSessions} sessions grouped</small>`:'';
+      const ids=s.allSessionIds.map(id=>`<small>${escapeHtml(id.slice(0,8))}</small>`).join('');
+      return `<tr><td>${escapeHtml(s.playerName)}${ip}${duplicate}${ids}</td><td>${time}</td><td>${renderFlagHistory(s)}</td><td><span class="status-pill ${statusClass(s.status)}">${escapeHtml(s.status)}</span></td><td>${action}</td></tr>`;
     }).join('');
   }
   async function forceLock(sessionId){
-    if(!confirm('Force-lock this participant? They will be disqualified immediately.'))return;
-    try{await call('/api/admin/lock',{sessionId});await refresh()}catch(error){alert(error.message)}
+    if(!confirm('Force-lock this participant? All of their active sessions will be disqualified immediately.'))return;
+    try{await Promise.all(String(sessionId).split(',').map(id=>call('/api/admin/lock',{sessionId:id})));await refresh()}catch(error){alert(error.message)}
   }
   async function refresh(){
     if(refreshing||!passcode)return;
     refreshing=true;
     try{
       const data=await call('/api/admin/sessions');
-      const sessions=Array.isArray(data.sessions)?data.sessions:[];
+      const rawSessions=Array.isArray(data.sessions)?data.sessions:[];
+      const sessions=collapseParticipants(rawSessions);
       window.proctorQuestionTotal=data.totalQuestions||45;
       const counts=sessions.reduce((acc,s)=>{acc.total++;if(s.status==='IN PROGRESS')acc.active++;else if(s.status==='SUBMITTED')acc.submitted++;else if(s.status==='DISQUALIFIED')acc.locked++;else if(s.status==='TIME EXPIRED')acc.expired++;return acc},{total:0,active:0,submitted:0,locked:0,expired:0});
       $('stat-total').textContent=counts.total;$('stat-active').textContent=counts.active;$('stat-submitted').textContent=counts.submitted;$('stat-locked').textContent=counts.locked;$('stat-expired').textContent=counts.expired;

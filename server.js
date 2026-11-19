@@ -66,7 +66,9 @@ const DEFAULT_ROOM = 'OPEN';
 rooms.set(DEFAULT_ROOM, { name:'Los Santos Brand Quest', durationMs:30*60*1000, maxFlags:3, accessCode:null, createdAt:Date.now() });
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'admin123';
 const clean = s => String(s || '').trim().slice(0, 48);
+const playerKey = s => clean(s).toLowerCase().replace(/\s+/g,' ');
 const publicQuestion = q => { const { answer, answerText, ...safe } = q; return safe; };
+const startPayload = (s,resumed=false) => ({ sessionId:s.id,durationMs:s.durationMs,maxFlags:s.maxFlags,roomName:rooms.get(s.roomCode)?.name||'Trivia Event',questions:QUESTIONS.map(publicQuestion),answers:s.responses||{},currentQuestion:s.currentQuestion||0,resumed });
 const scoreResponses = responses => QUESTIONS.reduce((score,q,i) => {
   const value=responses[i];
   if(value===undefined || value===null || value==='') return score;
@@ -83,6 +85,18 @@ const sanitizeResponses = value => {
     else if(q.answerText && typeof answer==='string' && answer.trim()) cleanAnswers[i]=answer.trim().slice(0,160);
   });
   return cleanAnswers;
+};
+const mergeResponses = (previous,value) => {
+  const source=value && typeof value==='object' && !Array.isArray(value) ? value : {};
+  const cleanAnswers=sanitizeResponses(source);
+  const merged={...(previous||{})};
+  QUESTIONS.forEach((_,i)=>{
+    if(Object.prototype.hasOwnProperty.call(source,i)){
+      if(Object.prototype.hasOwnProperty.call(cleanAnswers,i))merged[i]=cleanAnswers[i];
+      else delete merged[i];
+    }
+  });
+  return merged;
 };
 const sessionPublic = s => ({ sessionId:s.id, playerName:s.playerName, ip:s.ip, roomCode:s.roomCode, roomName:rooms.get(s.roomCode)?.name || 'Unknown room', startTime:s.startTime, durationMs:s.durationMs, violations:s.violations, maxFlags:s.maxFlags, violationLog:s.violationLog, answeredCount:Object.keys(s.responses || {}).length, status:s.locked?'DISQUALIFIED':s.submitted?'SUBMITTED':Date.now()>s.startTime+s.durationMs+10000?'TIME EXPIRED':'IN PROGRESS', score:s.score, reason:s.lockReason || null });
 const getSession = req => sessions.get(String(req.body.sessionId || req.query.sessionId || ''));
@@ -110,11 +124,27 @@ app.post('/api/start', (req,res) => {
   if (!playerName) return res.status(400).json({error:'Enter a nickname'});
   if (!room) return res.status(404).json({error:'Room not found'});
   if (room.accessCode && String(req.body.accessCode || '') !== room.accessCode) return res.status(403).json({error:'Incorrect room access code'});
+  const normalizedName=playerKey(playerName);
+  const samePlayerSessions=[...sessions.values()].filter(s=>s.roomCode===roomCode&&s.playerKey===normalizedName);
+  const savedSession=samePlayerSessions.find(s=>s.id===String(req.body.resumeSessionId||''));
+  const existing=savedSession||samePlayerSessions.sort((a,b)=>{
+    const now=Date.now();
+    const priority=s=>s.locked||s.submitted||now>s.startTime+s.durationMs+10000?1:0;
+    return priority(a)-priority(b)||(Object.keys(b.responses||{}).length-Object.keys(a.responses||{}).length)||(b.score||0)-(a.score||0)||a.startTime-b.startTime;
+  })[0];
+  if(existing){
+    if(String(req.body.resumeSessionId||'')!==existing.id)return res.status(409).json({error:'A session already uses this nickname in this room. Resume it in the same browser or choose another nickname.'});
+    if(existing.locked)return res.status(423).json({error:'This session is disqualified'});
+    if(existing.submitted)return res.status(409).json({error:'This session has already been submitted'});
+    if(Date.now()>existing.startTime+existing.durationMs+10000)return res.status(408).json({error:'This session has expired'});
+    existing.playerName=playerName;
+    return res.json(startPayload(existing,true));
+  }
   const id = crypto.randomUUID();
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const session = {id,roomCode,playerName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:0,responses:{}};
+  const session = {id,roomCode,playerName,playerKey:normalizedName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:0,responses:{},currentQuestion:0};
   sessions.set(id,session);
-  res.json({sessionId:id,durationMs:room.durationMs,maxFlags:room.maxFlags,roomName:room.name,questions:QUESTIONS.map(publicQuestion)});
+  res.json(startPayload(session));
 });
 
 app.post('/api/violation', (req,res) => {
@@ -132,8 +162,10 @@ app.post('/api/progress', (req,res) => {
   if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true});
   if(s.submitted) return res.status(409).json({error:'Session already submitted'});
   if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
-  s.responses=sanitizeResponses(req.body.answers);
+  s.responses=mergeResponses(s.responses,req.body.answers);
   s.score=scoreResponses(s.responses);
+  const currentQuestion=Number(req.body.currentQuestion);
+  if(Number.isInteger(currentQuestion))s.currentQuestion=Math.max(0,Math.min(QUESTIONS.length-1,currentQuestion));
   res.json({ok:true});
 });
 
@@ -142,7 +174,7 @@ app.post('/api/submit', (req,res) => {
   if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true,violations:s.violations});
   if(s.submitted) return res.json({score:s.score,total:QUESTIONS.length,violations:s.violations});
   if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
-  const answers=sanitizeResponses(req.body.answers);
+  const answers=mergeResponses(s.responses,req.body.answers);
   const score=scoreResponses(answers);
   s.submitted=true;s.score=score;s.responses=answers;
   res.json({score,total:QUESTIONS.length,violations:s.violations,playerName:s.playerName});
