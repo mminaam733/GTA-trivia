@@ -48,7 +48,7 @@
     return sorted.map((s,index)=>{
       const score=s.score??0;
       if(score!==lastScore){lastRank=index+1;lastScore=score}
-      const total=window.proctorQuestionTotal||45;
+      const total=window.proctorQuestionTotal||40;
       const answered=Math.min(total,s.answeredCount??0);
       const rankClass=lastRank===1?' first':'';
       const scoreClass=lastRank===1?' score-top':'';
@@ -88,7 +88,7 @@
       const data=await call('/api/admin/sessions');
       const rawSessions=Array.isArray(data.sessions)?data.sessions:[];
       const sessions=collapseParticipants(rawSessions);
-      window.proctorQuestionTotal=data.totalQuestions||45;
+      window.proctorQuestionTotal=data.totalQuestions||40;
       const counts=sessions.reduce((acc,s)=>{acc.total++;if(s.status==='IN PROGRESS')acc.active++;else if(s.status==='SUBMITTED')acc.submitted++;else if(s.status==='DISQUALIFIED')acc.locked++;else if(s.status==='TIME EXPIRED')acc.expired++;return acc},{total:0,active:0,submitted:0,locked:0,expired:0});
       $('stat-total').textContent=counts.total;$('stat-active').textContent=counts.active;$('stat-submitted').textContent=counts.submitted;$('stat-locked').textContent=counts.locked;$('stat-expired').textContent=counts.expired;
       $('leaderboard').innerHTML=sessions.length?rankRows(sessions):'<tr><td colspan="6">No participants yet. Scores appear when answers are saved.</td></tr>';

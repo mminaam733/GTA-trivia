@@ -11,54 +11,52 @@ app.use(express.json({ limit: '32kb' }));
 app.get('/proctor.html',(_req,res)=>res.sendFile(path.join(__dirname,'public','proctor-ui.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Keep the complete, authoritative answer bank here. Replace/add entries to reach 45.
-// Do not move answer or answerText fields into public assets.
+// Complete bank from Trivia questions.pdf. Bolded answers were used as the key,
+// with the math errors in questions 2 and 24 corrected and question 9 clarified.
+// Never expose answer, answerText, or answerAliases in public question responses.
 const QUESTIONS = [
-  { type:'MULTIPLE CHOICE', question:'Which fictional city is the setting of GTA: Vice City?', options:['Liberty City','Vice City','San Andreas','Carcer City'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:'Who is the protagonist of Vice City?', options:['Carl Johnson','Tommy Vercetti','Claude','Victor Vance'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:'Which decade defines Vice City’s neon-soaked story?', options:['1960s','1970s','1980s','1990s'], answer:2 },
-  { type:'TRUE / FALSE', question:'Tommy Vercetti arrives in Vice City after serving time in prison.', options:['True','False'], answer:0 },
-  { type:'TRUE / FALSE', question:'The Ocean View Hotel is one of Tommy’s early safehouses.', options:['True','False'], answer:0 },
-  { type:'QNA', question:'Name the protagonist of GTA: Vice City.', answerText:'tommy vercetti' },
-  { type:'QNA', question:'What is the name of Tommy’s lawyer?', answerText:'ken rosenberg' },
-  { type:'CASE FILE', brief:'A deal at the docks goes bad. A trusted lawyer needs the boss to rebuild his reach across the city.', question:'Which character is Tommy’s lawyer and early business contact?', options:['Lance Vance','Ken Rosenberg','Sonny Forelli','Avery Carrington'], answer:1 },
-  { type:'CASE FILE', brief:'A radio host keeps the city moving with synth, rock, and Miami Vice-era energy.', question:'Which station is hosted by Fernando Martinez?', options:['Flash FM','V-Rock','Wave 103','Radio Espantoso'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of Tommy’s associate who later turns against him?', options:['Lance Vance','Phil Cassidy','Umberto Robina','Steve Scott'], answer:0 },
-  { type:'TRUE / FALSE', question:'The Malibu Club can become one of Tommy’s business assets.', options:['True','False'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which station is known for its rock lineup and Lazlow’s hosting?', options:['V-Rock','K-Chat','Emotion 98.3','Fever 105'], answer:0 },
-  { type:'QNA', question:'What is the surname of the Vance brothers?', answerText:'vance' },
-  { type:'CASE FILE', brief:'A property deal opens a route into the city’s nightlife economy.', question:'Which club does Tommy acquire?', options:['The Rusty Anchor','Malibu Club','Pole Position','Hyman Memorial'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:'Which district is home to the Ocean View Hotel?', options:['Vice Point','Ocean Beach','Little Haiti','Downtown'], answer:1 },
-  { type:'TRUE / FALSE', question:'GTA: Vice City features a full in-game radio dial.', options:['True','False'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which character is a real estate developer Tommy works with?', options:['Avery Carrington','Kent Paul','Cam Jones','Pastor Richards'], answer:0 },
-  { type:'QNA', question:'Name the lawyer who helps Tommy settle in Vice City.', answerText:'ken rosenberg' },
-  { type:'CASE FILE', brief:'The city’s music scene ranges from new wave to classic rock.', question:'Which station features new wave and is presented by Adam First?', options:['Wave 103','V-Rock','Wildstyle','Flash FM'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the Cuban gang leader?', options:['Ricardo Diaz','Umberto Robina','Auntie Poulet','Sonny Forelli'], answer:1 },
-  { type:'TRUE / FALSE', question:'Ricardo Diaz becomes one of Tommy’s major enemies.', options:['True','False'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which vehicle is a classic two-door sports car in Vice City?', options:['Banshee','Cheetah','Both of these','Neither'], answer:2 },
-  { type:'QNA', question:'What is Tommy Vercetti’s first name?', answerText:'tommy' },
-  { type:'CASE FILE', brief:'A rock station is recruiting loud personalities for a loud city.', question:'Who is the host of V-Rock?', options:['Lazlow','Fernando Martinez','Adam First','Lionel Makepeace'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which island district is associated with the Vercetti Estate?', options:['Starfish Island','Prawn Island','Leaf Links','Washington Beach'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the nightclub owned by Tommy?', options:['Malibu Club','Pole Position Club','Club Malibu','Ocean Club'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which character owns the Print Works?', options:['Mitch Baker','Steve Scott','Tommy Vercetti','Phil Cassidy'], answer:2 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the biker gang leader?', options:['Mitch Baker','Umberto Robina','Cam Jones','Hilary King'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which station plays Latin music and is hosted by Pepe?', options:['Radio Espantoso','Wildstyle','Flash FM','K-Chat'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the Haitian gang leader?', options:['Auntie Poulet','Mercedes Cortez','Candy Suxxx','Hilary King'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which vehicle is used in the mission “Demolition Man”?', options:['RC Bandit','RC Goblin','RC Raider','RC Baron'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:'Who is the owner of the film studio on Prawn Island?', options:['Steve Scott','Sonny Forelli','Ken Rosenberg','Avery Carrington'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which radio station features classic pop and hosted by Toni?', options:['Emotion 98.3','Wave 103','V-Rock','Flash FM'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the Cuban gang’s leader?', options:['Umberto Robina','Ricardo Diaz','Mitch Baker','Auntie Poulet'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which property is a car dealership?', options:['Sunshine Autos','Print Works','Cherry Popper','Boatyard'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Who is the owner of the Cherry Popper Ice Cream Factory?', options:['Auntie Poulet','Tommy Vercetti','Ken Rosenberg','Sonny Forelli'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:'Which character is a film director?', options:['Steve Scott','Kent Paul','Cam Jones','Hilary King'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What is the name of the city’s golf course?', options:['Leaf Links','Starfish Links','Vice Point Greens','Ocean Dunes'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'Which station is hosted by Lionel Makepeace?', options:['K-Chat','Flash FM','V-Rock','Emotion 98.3'], answer:0 },
-  { type:'MULTIPLE CHOICE', question:'What does Tommy acquire to help move goods across the water?', options:['Boatyard','Film Studio','Car Showroom','Nightclub'], answer:0 },
-  { type:'TRUE / FALSE', question:'Vice City is inspired by Miami in the 1980s.', options:['True','False'], answer:0 },
-  { type:'TRUE / FALSE', question:'Lance Vance is Tommy’s cousin.', options:['True','False'], answer:1 },
-  { type:'TRUE / FALSE', question:'The Vercetti Estate is located on Starfish Island.', options:['True','False'], answer:0 },
-  { type:'TRUE / FALSE', question:'Tommy meets Sonny Forelli during the opening deal.', options:['True','False'], answer:0 },
-  { type:'TRUE / FALSE', question:'Prawn Island is home to the film studio.', options:['True','False'], answer:0 }
+  { type:'MULTIPLE CHOICE', question:"You've purchased a CEO Office and a Supercar in Los Santos. Which business model would generate revenue using both assets most effectively?", options:['Automobile manufacturing','Luxury car rentals and executive transportation','Food processing','Pharmaceutical distribution'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:"Your crew invests $500,000 in a nightclub. It generates $100,000 in revenue every round, with operating expenses of $40,000 per round. How many rounds will it take to recover your initial investment?", options:['5 rounds','6 rounds','9 rounds','10 rounds'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:"Your team receives 50 million to invest in different businesses across Vice City. You are considering investing in a hotel, car dealership, restaurant and technology startup to generate long-term returns while reducing financial risk. Which investment strategy would be most suitable for your team?", options:['Liquidation','Diversification','Monopoly','Outsourcing'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:"Three organisations bid for an exclusive business contract worth $1 million. The contract requires an investment of $700,000 and operational costs of $100,000. Which organisation has the best potential profit if the contract is awarded to the highest bidder?", options:['Team A bids $950,000','Team B bids $850,000','Team C bids $750,000','All teams earn the same profit'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:"A game studio gives its app free but charges for premium features. This model is:", options:['Franchising','Barter','Freemium','Licensing'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:"Your company has two investment opportunities. Investment A offers a 20% expected return with high risk. Investment B offers a 12% expected return with significantly lower risk. Your organisation cannot afford major financial losses. Which decision is most sensible?", options:['Always choose Investment A because returns are higher.','Choose Investment B after evaluating risk-adjusted returns.','Invest all capital in both without analysis.','Avoid investing in either opportunity.'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:"Your yacht-rental demand peaks in summer and dips in monsoon. This pattern is:", options:['Inflation','Arbitrage','Liquidation','Seasonality'], answer:3 },
+  { type:'MULTIPLE CHOICE', question:"When an investor purchases shares through an IPO, who receives the money in a fresh issue?", options:['Existing shareholders selling their shares','The company issuing the new shares','The stock exchange','The stockbroker'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:"What does a company mean when it announces a 1:2 stock split?", options:['Each existing share becomes three shares.','Every two existing shares are converted into one share.','Each existing share becomes two shares: one additional share for each share held.','The company doubles its market capitalization.'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:"The specific group of customers a business aims to serve is its:", options:['Supplier base','Target market','Competition','Shareholders'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:'Which is the most liquid asset?', options:['Cash','Casino building','Yacht','Land'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:'One company controls all helicopter taxis in the city. This is a:', options:['Oligopoly','Monopoly','Duopoly','Perfect competition'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:'Your casino generates high revenue, but customer retention is declining and competitors are gaining market share. Which metric would best help you understand whether customers continue to choose your casino?', options:['Employee Attendance','Customer Retention Rate','Office Maintenance Cost','Number of Company Vehicles'], answer:1 },
+  { type:'MULTIPLE CHOICE', question:'A company reports increasing revenue but decreasing profits. What could be the most likely reason?', options:['Its sales volume has increased','Its customer base has expanded','Its market share has increased','Its operating expenses have increased faster than revenue'], answer:3 },
+  { type:'MULTIPLE CHOICE', question:'A team member discovers confidential information that a competitor is about to launch a new luxury vehicle. Your organisation uses this information to prepare its marketing strategy before the launch. What business function is primarily involved?', options:['Market Intelligence','Human Resource Management','Inventory Management','Financial Auditing'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:'Your organisation owns a casino, a luxury hotel, a car dealership and a nightclub. Although each business operates independently, you bring them under one recognisable corporate identity to build trust and reputation across multiple industries. Which strategy best describes this approach?', options:['Brand Portfolio Strategy','Cost Leadership','Market Segmentation','Product Differentiation'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:'A sudden economic recession hits Los Santos. Customers cut luxury spending, hotel bookings decline, and your nightclub has fewer visitors. Your organisation also has outstanding loans and high operating expenses. What is the most sustainable business decision?', options:['Expand aggressively by taking additional loans.','Maintain all existing expenses and avoid changing the business model.','Reassess operating costs, preserve cash reserves, identify essential revenue streams and adapt services to customer demand.','Immediately sell every business asset without evaluating its long-term value.'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:'A company announces excellent quarterly results, but its stock price falls immediately afterwards. What is a possible explanation?', options:['The stock exchange rejected its results.','The company automatically became unprofitable.','Its outstanding shares disappeared.','Investors expected even better results.'], answer:3 },
+  { type:'MULTIPLE CHOICE', question:'Which business model generates revenue by charging customers at regular intervals?', options:['Franchise model','Brokerage model','Subscription model','Licensing model'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:'A company selling shares to the public for the first time is an:', options:['EMI','MOU','NPA','IPO'], answer:3 },
+  { type:'MULTIPLE CHOICE', question:'Letting others run outlets under your brand and system for a fee is:', options:['Merger','Outsourcing','Franchising','Liquidation'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:'What happens to the ownership percentage of existing shareholders when a company issues new shares, assuming they do not purchase additional shares?', options:['It automatically decreases','It automatically increases','It remains unchanged','It becomes zero'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:'You own a popular nightclub in Vice City. Revenue rises by 30%, but profits fall because salaries, electricity bills and maintenance costs rise significantly. What is the most likely reason?', options:['Increased operating expenses','Increased customer demand','Improved brand recognition','Increased market share'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:"Your organisation has $2 million in cash, $5 million in properties, $1 million in vehicles, $3 million in outstanding loans, and $1 million in other liabilities. What is its net worth?", options:['$4 million','$5 million','$6 million','$8 million'], answer:0 },
+  { type:'MULTIPLE CHOICE', question:'Your nightclub generates $200,000 in monthly revenue. Operating expenses are 40% of revenue, and monthly loan instalments are $30,000. What is the remaining monthly cash flow after these expenses?', options:['$90,000','$120,000','$140,000','$170,000'], answer:0 },
+
+  { type:'TRUE / FALSE', question:'A company can increase its profits even if its total revenue remains unchanged by reducing its expenses.', options:['True','False'], answer:0 },
+  { type:'TRUE / FALSE', question:'When demand for a product increases and supply remains constant, its price generally tends to rise.', options:['True','False'], answer:0 },
+  { type:'TRUE / FALSE', question:'A monopoly exists when many companies compete to sell the same product.', options:['True','False'], answer:1 },
+  { type:'TRUE / FALSE', question:'Buying shares of a company makes you a partial owner of that company.', options:['True','False'], answer:0 },
+  { type:'TRUE / FALSE', question:'A business operating at a loss necessarily has zero revenue.', options:['True','False'], answer:1 },
+  { type:'TRUE / FALSE', question:"Franchising allows a business to expand using another company's established brand and business model.", options:['True','False'], answer:0 },
+  { type:'TRUE / FALSE', question:'Inflation increases the purchasing power of money.', options:['True','False'], answer:1 },
+  { type:'TRUE / FALSE', question:"A company's market share represents its percentage of total sales within a particular market.", options:['True','False'], answer:0 },
+  { type:'TRUE / FALSE', question:'Offering discounts always guarantees an increase in overall profit.', options:['True','False'], answer:1 },
+  { type:'TRUE / FALSE', question:'Diversification helps businesses reduce their dependence on a single source of income.', options:['True','False'], answer:0 },
+
+  { type:'QNA', question:'What is the term for money borrowed by a company that must be repaid with interest?', answerText:'debt' },
+  { type:'QNA', question:'What do we call the process of transferring government-owned businesses to private ownership?', answerText:'privatisation', answerAliases:['privatization'] },
+  { type:'QNA', question:"Which financial term describes a business's ability to meet its short-term financial obligations?", answerText:'liquidity' },
+  { type:'QNA', question:'What is the term for a market dominated by a small number of major companies?', answerText:'oligopoly' },
+  { type:'QNA', question:'What is the additional value customers associate with a well-known brand compared to a generic alternative?', answerText:'brand premium' }
 ];
 const rooms = new Map();
 const sessions = new Map();
@@ -67,13 +65,13 @@ rooms.set(DEFAULT_ROOM, { name:'Los Santos Brand Quest', durationMs:30*60*1000, 
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'admin123';
 const clean = s => String(s || '').trim().slice(0, 48);
 const playerKey = s => clean(s).toLowerCase().replace(/\s+/g,' ');
-const publicQuestion = q => { const { answer, answerText, ...safe } = q; return safe; };
+const publicQuestion = q => { const { answer, answerText, answerAliases, ...safe } = q; return safe; };
 const startPayload = (s,resumed=false) => ({ sessionId:s.id,durationMs:s.durationMs,maxFlags:s.maxFlags,roomName:rooms.get(s.roomCode)?.name||'Trivia Event',questions:QUESTIONS.map(publicQuestion),answers:s.responses||{},currentQuestion:s.currentQuestion||0,resumed });
 const scoreResponses = responses => QUESTIONS.reduce((score,q,i) => {
   const value=responses[i];
   if(value===undefined || value===null || value==='') return score;
   if(q.answer!==undefined && Number(value)===q.answer) return score+1;
-  if(q.answerText && typeof value==='string' && value.trim().toLowerCase().includes(q.answerText)) return score+1;
+  if(q.answerText && typeof value==='string' && [q.answerText,...(q.answerAliases||[])].some(keyword=>value.trim().toLowerCase().includes(keyword))) return score+1;
   return score;
 },0);
 const sanitizeResponses = value => {

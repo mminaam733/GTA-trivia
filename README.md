@@ -15,7 +15,7 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) to take the open quiz. Open [http://localhost:3000/proctor](http://localhost:3000/proctor) for the organizer console. The default organizer passcode is `admin123`; set `ADMIN_PASSCODE` in the environment before deployment.
 
-The example bank in `server.js` contains 45 questions (25 multiple choice, 10 true/false, 5 QNA, and 5 case files). Replace those entries with your final question set. Keep each `answer` index or `answerText` keyword on the server; `/api/start` only returns the public question fields.
+The authoritative bank in `server.js` contains 40 questions transcribed from the supplied PDF: 25 multiple choice, 10 true/false, and 5 QNA. The PDF contains no case-file questions. Question 2's incorrect 8-round choice was corrected to 9 rounds, question 24's net worth key was corrected to $4 million, and question 9's split wording was clarified. Keep answer keys and accepted aliases on the server; `/api/start` only returns public question fields.
 
 ## Share over local Wi-Fi
 
