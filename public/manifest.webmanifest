@@ -1,0 +1,8 @@
+{
+  "name": "Vice City Trivia — The Los Santos Brand Quest",
+  "short_name": "Vice City Trivia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#130720",
+  "theme_color": "#130720"
+}

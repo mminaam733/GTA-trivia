@@ -1,0 +1,5 @@
+html,body{min-height:100%;min-height:100dvh}
+.topbar{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));padding-top:env(safe-area-inset-top)}
+body.immersive-mode{padding-bottom:env(safe-area-inset-bottom)}
+.safari-hint{color:var(--cyan);font-size:9px;letter-spacing:.5px}
+.lock-screen{padding-top:max(22px,env(safe-area-inset-top));padding-bottom:max(22px,env(safe-area-inset-bottom))}

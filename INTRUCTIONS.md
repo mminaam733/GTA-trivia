@@ -115,3 +115,17 @@ In Render, open the service's **Environment** settings, change `ADMIN_PASSCODE`,
 - **Players outside your Wi-Fi cannot connect to a localhost link:** deploy on Render and send the generated public HTTPS room link instead.
 - **The first public visit is slow:** a free Render service may have been sleeping; wait for it to start.
 - **Quiz data disappears after a restart:** current rooms and sessions are in memory. Create the room again after a restart.
+- **iPhone Safari cannot enter webpage fullscreen:** this is an iOS Safari limitation. The quiz now continues in immersive browser mode and still records app/tab switches. For an app-like display, open the quiz link in Safari, tap **Share** → **Add to Home Screen**, then start the quiz from the new Home Screen icon.
+
+
+
+ter 1:
+
+cd "C:\Users\mmina\OneDrive\Desktop\gta"
+$env:ADMIN_PASSCODE = "choose-your-own-passcode"
+npm.cmd start
+
+ter2:
+
+cd "C:\Users\mmina\OneDrive\Desktop\gta"
+npx.cmd --yes localtunnel --port 3000

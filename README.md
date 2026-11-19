@@ -35,4 +35,5 @@ Railway can also deploy the repository as a Node web service: use `npm install` 
 
 - Room/session data is held in memory and resets when the process restarts; use a persistent database before running multiple server instances or hosting high-stakes events.
 - Browser fullscreen and focus detection are proctoring signals, not tamper-proof controls. The server remains authoritative for deadlines, flags, lockouts, and grades.
+- iPhone Safari does not provide webpage fullscreen for ordinary pages. The app detects that case, avoids a permanent fullscreen lock, and still records tab/app switches. For an app-like display, open the quiz in Safari, tap **Share** → **Add to Home Screen**, then launch it from the new Home Screen icon.
 - The organizer dashboard loads its QR encoder from jsDelivr. If that CDN is blocked, room links can still be copied and shared.
