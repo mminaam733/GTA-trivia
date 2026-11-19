@@ -1,0 +1,14 @@
+@media(min-width:561px){.stat-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:880px){
+  .proctor-grid{grid-template-columns:1fr}
+  .proctor-shell{margin-top:25px}
+}
+@media(max-width:560px){
+  .proctor-shell{width:calc(100% - 20px)}
+  .proctor-card{padding:17px 13px}
+  .proctor-heading{align-items:flex-start}
+  .proctor-heading h1{font-size:2.8rem}
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-row{gap:7px}
+  .monitor-heading{align-items:flex-start;flex-direction:column}
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#130720">
+  <title>Proctor Console — Vice City Trivia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/proctor-ui.css">
+  <link rel="stylesheet" href="/proctor-ui-mobile.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"><div class="sunset"></div></div>
+  <header class="topbar">
+    <a class="brand" href="/"><svg viewBox="0 0 40 40" aria-hidden="true"><path fill="#ff3b9a" d="M20 0l5 13 13-6-6 13 8 5-14 2 2 14-8-10-10 10 2-14L0 25l8-5L2 7l13 6z"/></svg><span>VICE CITY TRIVIA</span></a>
+    <a class="admin-link" href="/">PARTICIPANT VIEW</a>
+  </header>
+  <main class="proctor-shell">
+    <div class="proctor-heading"><div><p class="eyebrow">ORGANIZER CONSOLE</p><h1>PROCTOR CONTROL</h1><p class="muted">Create a room, share the join link, and follow server-scored standings and flags.</p></div><button id="logout" class="secondary hidden" type="button">LOG OUT</button></div>
+    <section id="login" class="proctor-card login-card"><h2>ORGANIZER ACCESS</h2><p>Enter the organizer passcode to manage this event.</p><form id="login-form"><input id="passcode" type="password" placeholder="ADMIN PASSCODE" autocomplete="current-password" required><p id="login-error" class="error" role="alert"></p><button class="primary">OPEN PROCTOR DASHBOARD →</button></form></section>
+    <div id="dashboard" class="hidden">
+      <div class="proctor-grid">
+        <section class="proctor-card"><h2>CREATE QUIZ ROOM</h2><p>Each room gets its own participant link and optional access code.</p><form id="room-form">
+          <label>EVENT NAME<input id="room-name" maxlength="48" placeholder="Friday Night Trivia" required></label>
+          <div class="form-row"><label>DURATION (MIN)<input id="duration" type="number" min="1" max="240" value="30" required></label><label>MAX FLAGS<input id="max-flags" type="number" min="1" max="20" value="3" required></label></div>
+          <label>ACCESS CODE <span class="muted-small">(OPTIONAL)</span><input id="room-code" maxlength="48" placeholder="Leave blank for open access"></label>
+          <p id="room-error" class="error" role="alert"></p><button class="primary">CREATE ROOM &amp; SHARE →</button>
+        </form><div id="share" class="share-box hidden"><label for="share-url">PARTICIPANT JOIN LINK</label><div class="link-output"><input id="share-url" readonly><button id="copy" class="secondary" type="button">COPY</button></div><p id="room-created" class="muted-small"></p><div id="qrcode" class="qr-wrap"></div></div></section>
+        <section class="proctor-card monitor-card"><div class="monitor-heading"><div><h2>LIVE SCOREBOARD</h2><p>Server-scored · provisional scores update as answers are saved</p></div><span id="connection" class="badge">CONNECTING</span></div>
+          <div class="stat-grid"><div><span>PLAYERS</span><strong id="stat-total">0</strong></div><div><span>IN PROGRESS</span><strong id="stat-active">0</strong></div><div><span>SUBMITTED</span><strong id="stat-submitted">0</strong></div><div><span>DISQUALIFIED</span><strong id="stat-locked">0</strong></div><div><span>TIME EXPIRED</span><strong id="stat-expired">0</strong></div></div>
+          <div class="table-wrap"><table><thead><tr><th>RANK</th><th>PLAYER / EVENT</th><th>SCORE</th><th>PROGRESS</th><th>FLAGS</th><th>STATUS</th></tr></thead><tbody id="leaderboard"><tr><td colspan="6">Waiting for players…</td></tr></tbody></table></div>
+          <h3>PROCTOR ACTIONS</h3><div class="table-wrap"><table><thead><tr><th>PARTICIPANT / IP</th><th>TIME LEFT</th><th>FLAG HISTORY</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="session-rows"><tr><td colspan="5">Waiting for sessions…</td></tr></tbody></table></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="/proctor-ui.js" defer></script>
+</body>
+</html>

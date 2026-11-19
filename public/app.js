@@ -2,10 +2,13 @@
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.search), roomCode=(params.get('room')||'OPEN').toUpperCase();
 const fullscreenAvailable=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
 const standaloneMode=navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
-let sessionId=null,questions=[],answers={},index=0,durationMs=1800000,maxFlags=3,violations=0,active=false,submitting=false,lockVisible=false;
+let sessionId=null,questions=[],answers={},index=0,durationMs=1800000,maxFlags=3,violations=0,active=false,submitting=false,lockVisible=false,progressTimer=null;
 if(roomCode!=='OPEN')$('access-wrap').hidden=false;
 if(!fullscreenAvailable){$('fullscreen').hidden=true;$('fullscreen-hint').hidden=false;$('start-description').textContent=standaloneMode?'This Home Screen app is ready. Keep it open during the quiz; leaving the app is still recorded as a flag.':'iPhone Safari does not support webpage fullscreen. The quiz will use immersive browser mode; leaving Safari is still recorded as a flag. For an app-like fullscreen view, add this page to your Home Screen.'}
 const api=async(url,data)=>{const res=await fetch(url,{method:data?'POST':'GET',headers:data?{'Content-Type':'application/json'}:{},body:data?JSON.stringify(data):undefined});const out=await res.json().catch(()=>({}));if(!res.ok)throw new Error(out.error||'Request failed');return out};
+function scheduleProgress(){if(!active||!sessionId)return;clearTimeout(progressTimer);progressTimer=setTimeout(()=>api('/api/progress',{sessionId,answers}).catch(()=>{}),350)}
+$('quiz-view').addEventListener('click',e=>{if(e.target.closest('.answer'))setTimeout(scheduleProgress,0)});
+$('quiz-view').addEventListener('input',e=>{if(e.target.matches('.qna-input'))scheduleProgress()});
 const format=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
 const full=()=>document.fullscreenElement||document.webkitFullscreenElement;
 async function enterFullscreen(){const el=document.documentElement;try{if(el.requestFullscreen)await el.requestFullscreen();else if(el.webkitRequestFullscreen)await el.webkitRequestFullscreen();else return false;return !!full()}catch{return false}}

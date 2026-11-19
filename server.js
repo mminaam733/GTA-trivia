@@ -8,6 +8,7 @@ app.disable('x-powered-by');
 // protocol so generated participant URLs point to the public HTTPS address.
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '32kb' }));
+app.get('/proctor.html',(_req,res)=>res.sendFile(path.join(__dirname,'public','proctor-ui.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Keep the complete, authoritative answer bank here. Replace/add entries to reach 45.
@@ -66,7 +67,24 @@ rooms.set(DEFAULT_ROOM, { name:'Los Santos Brand Quest', durationMs:30*60*1000, 
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'admin123';
 const clean = s => String(s || '').trim().slice(0, 48);
 const publicQuestion = q => { const { answer, answerText, ...safe } = q; return safe; };
-const sessionPublic = s => ({ sessionId:s.id, playerName:s.playerName, startTime:s.startTime, durationMs:s.durationMs, violations:s.violations, maxFlags:s.maxFlags, status:s.locked?'DISQUALIFIED':s.submitted?'SUBMITTED':'IN PROGRESS', score:s.score, reason:s.lockReason || null });
+const scoreResponses = responses => QUESTIONS.reduce((score,q,i) => {
+  const value=responses[i];
+  if(value===undefined || value===null || value==='') return score;
+  if(q.answer!==undefined && Number(value)===q.answer) return score+1;
+  if(q.answerText && typeof value==='string' && value.trim().toLowerCase().includes(q.answerText)) return score+1;
+  return score;
+},0);
+const sanitizeResponses = value => {
+  const source=value && typeof value==='object' && !Array.isArray(value) ? value : {};
+  const cleanAnswers={};
+  QUESTIONS.forEach((q,i)=>{
+    const answer=source[i];
+    if(q.answer!==undefined && (typeof answer==='number' || typeof answer==='string') && String(answer).trim()!=='' && Number.isInteger(Number(answer)) && Number(answer)>=0 && Number(answer)<q.options.length) cleanAnswers[i]=Number(answer);
+    else if(q.answerText && typeof answer==='string' && answer.trim()) cleanAnswers[i]=answer.trim().slice(0,160);
+  });
+  return cleanAnswers;
+};
+const sessionPublic = s => ({ sessionId:s.id, playerName:s.playerName, ip:s.ip, roomCode:s.roomCode, roomName:rooms.get(s.roomCode)?.name || 'Unknown room', startTime:s.startTime, durationMs:s.durationMs, violations:s.violations, maxFlags:s.maxFlags, violationLog:s.violationLog, answeredCount:Object.keys(s.responses || {}).length, status:s.locked?'DISQUALIFIED':s.submitted?'SUBMITTED':Date.now()>s.startTime+s.durationMs+10000?'TIME EXPIRED':'IN PROGRESS', score:s.score, reason:s.lockReason || null });
 const getSession = req => sessions.get(String(req.body.sessionId || req.query.sessionId || ''));
 const admin = (req,res,next) => {
   const token = req.get('x-admin-passcode') || req.query.passcode;
@@ -94,7 +112,7 @@ app.post('/api/start', (req,res) => {
   if (room.accessCode && String(req.body.accessCode || '') !== room.accessCode) return res.status(403).json({error:'Incorrect room access code'});
   const id = crypto.randomUUID();
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const session = {id,roomCode,playerName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:null,responses:null};
+  const session = {id,roomCode,playerName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:0,responses:{}};
   sessions.set(id,session);
   res.json({sessionId:id,durationMs:room.durationMs,maxFlags:room.maxFlags,roomName:room.name,questions:QUESTIONS.map(publicQuestion)});
 });
@@ -108,24 +126,34 @@ app.post('/api/violation', (req,res) => {
   res.json({locked:s.locked,violations:s.violations,maxFlags:s.maxFlags});
 });
 
+// Progress is stored and scored only on the server. The answer key is never returned.
+app.post('/api/progress', (req,res) => {
+  const s=getSession(req); if(!s) return res.status(404).json({error:'Session not found'});
+  if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true});
+  if(s.submitted) return res.status(409).json({error:'Session already submitted'});
+  if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
+  s.responses=sanitizeResponses(req.body.answers);
+  s.score=scoreResponses(s.responses);
+  res.json({ok:true});
+});
+
 app.post('/api/submit', (req,res) => {
   const s=getSession(req); if(!s) return res.status(404).json({error:'Session not found'});
   if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true,violations:s.violations});
   if(s.submitted) return res.json({score:s.score,total:QUESTIONS.length,violations:s.violations});
   if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
-  const answers=req.body.answers && typeof req.body.answers==='object' ? req.body.answers : {};
-  let score=0;
-  QUESTIONS.forEach((q,i)=>{const a=answers[i]; if(q.answer!==undefined && Number(a)===q.answer) score++; else if(q.answerText && typeof a==='string' && a.trim().toLowerCase().includes(q.answerText)) score++;});
+  const answers=sanitizeResponses(req.body.answers);
+  const score=scoreResponses(answers);
   s.submitted=true;s.score=score;s.responses=answers;
   res.json({score,total:QUESTIONS.length,violations:s.violations,playerName:s.playerName});
 });
 
 app.get('/api/time/:id', (req,res)=>{const s=sessions.get(req.params.id);if(!s)return res.status(404).json({error:'Session not found'});res.json({serverNow:Date.now(),startTime:s.startTime,durationMs:s.durationMs,remainingMs:Math.max(0,s.startTime+s.durationMs-Date.now()),violations:s.violations,maxFlags:s.maxFlags,locked:s.locked,submitted:s.submitted});});
 app.post('/api/admin/login',(req,res)=>{if(String(req.body.passcode||'')!==ADMIN_PASSCODE)return res.status(401).json({error:'Incorrect passcode'});res.json({ok:true});});
-app.get('/api/admin/sessions',admin,(req,res)=>res.json({sessions:[...sessions.values()].map(sessionPublic),now:Date.now()}));
-app.post('/api/admin/lock',admin,(req,res)=>{const s=sessions.get(String(req.body.sessionId||''));if(!s)return res.status(404).json({error:'Session not found'});s.locked=true;s.lockReason='Organizer force lock';s.violations=Math.max(s.violations,s.maxFlags);s.violationLog.push({timestamp:Date.now(),reason:s.lockReason});res.json({ok:true});});
+app.get('/api/admin/sessions',admin,(req,res)=>res.json({sessions:[...sessions.values()].map(sessionPublic),totalQuestions:QUESTIONS.length,now:Date.now()}));
+app.post('/api/admin/lock',admin,(req,res)=>{const s=sessions.get(String(req.body.sessionId||''));if(!s)return res.status(404).json({error:'Session not found'});if(s.submitted)return res.status(409).json({error:'Submitted sessions cannot be force-locked'});if(s.locked)return res.json({ok:true});s.locked=true;s.lockReason='Organizer force lock';s.violations=Math.max(s.violations,s.maxFlags);s.violationLog.push({timestamp:Date.now(),reason:s.lockReason});res.json({ok:true});});
 
-app.get('/proctor',(_req,res)=>res.sendFile(path.join(__dirname,'public','proctor.html')));
+app.get('/proctor',(_req,res)=>res.sendFile(path.join(__dirname,'public','proctor-ui.html')));
 app.get('/health',(_req,res)=>res.json({ok:true}));
 const port=Number(process.env.PORT)||3000;
 app.listen(port,'0.0.0.0',()=>console.log(`Vice City Trivia listening on ${port}`));

@@ -35,7 +35,7 @@ This works only while your computer is on and the server is running.
 
    Find **IPv4 Address** under the Wi-Fi adapter, for example `192.168.1.20`.
 
-2. On your computer, open <http://localhost:3000/proctor> and sign in.
+2. On your computer, open <http://localhost:3000/proctor> and sign in. The dashboard shows live server-scored rankings, progress, flags, violation reasons, and force-lock controls.
 3. Create a room. Copy the participant link or show its QR code.
 4. If needed, replace `localhost` in the copied link with your IPv4 address. For example:
 
