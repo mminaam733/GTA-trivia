@@ -16,7 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Never expose answer, answerText, or answerAliases in public question responses.
 const QUESTIONS = [
   { type:'MULTIPLE CHOICE', question:"You've purchased a CEO Office and a Supercar in Los Santos. Which business model would generate revenue using both assets most effectively?", options:['Automobile manufacturing','Luxury car rentals and executive transportation','Food processing','Pharmaceutical distribution'], answer:1 },
-  { type:'MULTIPLE CHOICE', question:"Your crew invests $500,000 in a nightclub. It generates $100,000 in revenue every round, with operating expenses of $40,000 per round. How many rounds will it take to recover your initial investment?", options:['5 rounds','6 rounds','9 rounds','10 rounds'], answer:2 },
+  { type:'MULTIPLE CHOICE', question:"Your crew invests $500,000 in a nightclub. It generates $100,000 in revenue every round, with operating expenses of $40,000 per round. How many rounds will it take to recover your initial investment?", options:['5 rounds','6 rounds','8 rounds','10 rounds'], answer:2 },
   { type:'MULTIPLE CHOICE', question:"Your team receives 50 million to invest in different businesses across Vice City. You are considering investing in a hotel, car dealership, restaurant and technology startup to generate long-term returns while reducing financial risk. Which investment strategy would be most suitable for your team?", options:['Liquidation','Diversification','Monopoly','Outsourcing'], answer:1 },
   { type:'MULTIPLE CHOICE', question:"Three organisations bid for an exclusive business contract worth $1 million. The contract requires an investment of $700,000 and operational costs of $100,000. Which organisation has the best potential profit if the contract is awarded to the highest bidder?", options:['Team A bids $950,000','Team B bids $850,000','Team C bids $750,000','All teams earn the same profit'], answer:0 },
   { type:'MULTIPLE CHOICE', question:"A game studio gives its app free but charges for premium features. This model is:", options:['Franchising','Barter','Freemium','Licensing'], answer:2 },
@@ -65,8 +65,11 @@ rooms.set(DEFAULT_ROOM, { name:'Los Santos Brand Quest', durationMs:30*60*1000, 
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'admin123';
 const clean = s => String(s || '').trim().slice(0, 48);
 const playerKey = s => clean(s).toLowerCase().replace(/\s+/g,' ');
-const publicQuestion = q => { const { answer, answerText, answerAliases, ...safe } = q; return safe; };
-const startPayload = (s,resumed=false) => ({ sessionId:s.id,durationMs:s.durationMs,maxFlags:s.maxFlags,roomName:rooms.get(s.roomCode)?.name||'Trivia Event',questions:QUESTIONS.map(publicQuestion),answers:s.responses||{},currentQuestion:s.currentQuestion||0,resumed });
+const shuffleIndices = length => { const values=Array.from({length},(_,i)=>i); for(let i=values.length-1;i>0;i--){const j=crypto.randomInt(i+1);[values[i],values[j]]=[values[j],values[i]];} return values; };
+const publicQuestion = (q,optionOrder) => { const { answer, answerText, answerAliases, ...safe } = q; if(Array.isArray(safe.options)&&optionOrder)safe.options=optionOrder.map(i=>safe.options[i]); return safe; };
+const sessionQuestions = s => s.questionOrder.map((canonicalIndex)=>publicQuestion(QUESTIONS[canonicalIndex],s.optionOrders[canonicalIndex]));
+const sessionAnswers = s => Object.fromEntries(Object.entries(s.responses||{}).flatMap(([canonicalKey,value])=>{const canonicalIndex=Number(canonicalKey),displayIndex=s.questionOrder.indexOf(canonicalIndex); if(displayIndex<0)return []; const q=QUESTIONS[canonicalIndex]; const shownValue=q.answer!==undefined?s.optionOrders[canonicalIndex].indexOf(Number(value)):value; return shownValue===-1?[]:[[displayIndex,shownValue]];}));
+const startPayload = (s,resumed=false) => ({ sessionId:s.id,durationMs:s.durationMs,maxFlags:s.maxFlags,roomName:rooms.get(s.roomCode)?.name||'Trivia Event',questions:sessionQuestions(s),answers:sessionAnswers(s),currentQuestion:s.currentQuestion||0,resumed });
 const scoreResponses = responses => QUESTIONS.reduce((score,q,i) => {
   const value=responses[i];
   if(value===undefined || value===null || value==='') return score;
@@ -74,25 +77,15 @@ const scoreResponses = responses => QUESTIONS.reduce((score,q,i) => {
   if(q.answerText && typeof value==='string' && [q.answerText,...(q.answerAliases||[])].some(keyword=>value.trim().toLowerCase().includes(keyword))) return score+1;
   return score;
 },0);
-const sanitizeResponses = value => {
+const mergeSessionResponses = (s,previous,value) => {
   const source=value && typeof value==='object' && !Array.isArray(value) ? value : {};
-  const cleanAnswers={};
-  QUESTIONS.forEach((q,i)=>{
-    const answer=source[i];
-    if(q.answer!==undefined && (typeof answer==='number' || typeof answer==='string') && String(answer).trim()!=='' && Number.isInteger(Number(answer)) && Number(answer)>=0 && Number(answer)<q.options.length) cleanAnswers[i]=Number(answer);
-    else if(q.answerText && typeof answer==='string' && answer.trim()) cleanAnswers[i]=answer.trim().slice(0,160);
-  });
-  return cleanAnswers;
-};
-const mergeResponses = (previous,value) => {
-  const source=value && typeof value==='object' && !Array.isArray(value) ? value : {};
-  const cleanAnswers=sanitizeResponses(source);
   const merged={...(previous||{})};
-  QUESTIONS.forEach((_,i)=>{
-    if(Object.prototype.hasOwnProperty.call(source,i)){
-      if(Object.prototype.hasOwnProperty.call(cleanAnswers,i))merged[i]=cleanAnswers[i];
-      else delete merged[i];
-    }
+  s.questionOrder.forEach((canonicalIndex,displayIndex)=>{
+    if(!Object.prototype.hasOwnProperty.call(source,displayIndex))return;
+    const q=QUESTIONS[canonicalIndex], answer=source[displayIndex], canonicalKey=String(canonicalIndex);
+    if(q.answer!==undefined && (typeof answer==='number'||typeof answer==='string') && String(answer).trim()!=='' && Number.isInteger(Number(answer)) && Number(answer)>=0 && Number(answer)<s.optionOrders[canonicalIndex].length) merged[canonicalKey]=s.optionOrders[canonicalIndex][Number(answer)];
+    else if(q.answerText && typeof answer==='string' && answer.trim())merged[canonicalKey]=answer.trim().slice(0,160);
+    else delete merged[canonicalKey];
   });
   return merged;
 };
@@ -140,7 +133,7 @@ app.post('/api/start', (req,res) => {
   }
   const id = crypto.randomUUID();
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const session = {id,roomCode,playerName,playerKey:normalizedName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:0,responses:{},currentQuestion:0};
+  const session = {id,roomCode,playerName,playerKey:normalizedName,ip,startTime:Date.now(),durationMs:room.durationMs,maxFlags:room.maxFlags,violations:0,violationLog:[],locked:false,lockReason:null,submitted:false,score:0,responses:{},currentQuestion:0,questionOrder:shuffleIndices(QUESTIONS.length),optionOrders:QUESTIONS.map(q=>q.options?shuffleIndices(q.options.length):[])};
   sessions.set(id,session);
   res.json(startPayload(session));
 });
@@ -160,7 +153,7 @@ app.post('/api/progress', (req,res) => {
   if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true});
   if(s.submitted) return res.status(409).json({error:'Session already submitted'});
   if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
-  s.responses=mergeResponses(s.responses,req.body.answers);
+  s.responses=mergeSessionResponses(s,s.responses,req.body.answers);
   s.score=scoreResponses(s.responses);
   const currentQuestion=Number(req.body.currentQuestion);
   if(Number.isInteger(currentQuestion))s.currentQuestion=Math.max(0,Math.min(QUESTIONS.length-1,currentQuestion));
@@ -172,7 +165,7 @@ app.post('/api/submit', (req,res) => {
   if(s.locked) return res.status(423).json({error:'Session disqualified',locked:true,violations:s.violations});
   if(s.submitted) return res.json({score:s.score,total:QUESTIONS.length,violations:s.violations});
   if(Date.now()>s.startTime+s.durationMs+10000) return res.status(408).json({error:'Time expired'});
-  const answers=mergeResponses(s.responses,req.body.answers);
+  const answers=mergeSessionResponses(s,s.responses,req.body.answers);
   const score=scoreResponses(answers);
   s.submitted=true;s.score=score;s.responses=answers;
   res.json({score,total:QUESTIONS.length,violations:s.violations,playerName:s.playerName});
